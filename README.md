@@ -1,8 +1,10 @@
 # hra-amap
 
-Code for AMap project.
+Code for AMap project. 
 
-Setup instructions:
+This repository aims to enable projection of tissue blocks registrered to a source organ to a new reference organ (usually the Human Reference Atlas, part of HuBMap). 
+
+### Setup instructions:
 
 1. Clone the repository with ```git clone https://github.com/cns-iu/hra-amap.git```
 
