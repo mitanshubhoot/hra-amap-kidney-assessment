@@ -8,7 +8,7 @@ This repository aims to enable projection of tissue blocks registrered to a sour
 
 1. Clone the repository with ```git clone https://github.com/cns-iu/hra-amap.git```
 
-2. Clone the repository ```git clone https://github.com/ohirose/bcpd.git``` that implements the Bayesian Coherent Point Drift algorithm based on the following paper (A Bayesian Formulation of Coherent Point Drift)[https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8985307]. The repository is ~1GB in file size hence it is not shipped with our repository and requires additional setup: 
+2. Clone the repository ```git clone https://github.com/ohirose/bcpd.git``` that implements the Bayesian Coherent Point Drift algorithm based on the following paper [A Bayesian Formulation of Coherent Point Drift](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8985307). The repository is ~1GB in file size hence it is not shipped with our repository and requires additional setup: 
 
     * For Windows
 
@@ -22,4 +22,4 @@ This repository aims to enable projection of tissue blocks registrered to a sour
 
 3. Ensure that the two repositories (hra-amap and bcpd) are at the **same root level**. 
 
-4. To run a quick registration using the provided pipeline, please see ```notebooks/pipeline_usage``` 
+4. To run a quick registration using the provided pipeline, please see ```notebooks/pipeline_usage```
