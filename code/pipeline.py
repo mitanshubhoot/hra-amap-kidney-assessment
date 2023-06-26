@@ -1,5 +1,4 @@
 import yaml
-import open3d as o3d
 
 from registration import rigid_registration, nonrigid_registration
 from utils.preprocess import normalize
@@ -13,7 +12,10 @@ class RegistrationPipeline():
         with open(params) as f:
             self.params = yaml.safe_load(f)
 
-    def hyperparamter_search():
+    def _hyperparamter_search():
+        raise NotImplementedError
+    
+    def _autotune():
         raise NotImplementedError
 
     def run(self, source: Organ, target: Organ):
@@ -29,13 +31,10 @@ class RegistrationPipeline():
         # registered organ
         source.registered = pointcloud_to_mesh(source.transformed_nonrigid, source.faces)
 
-        return source
+        # add registration params to the registered organ
+        source.registered.params = self.params
 
-    def export_projections(export_dir: str):
-        raise NotImplementedError
-    
-    def export_registration(export_dir: str):
-        raise NotImplementedError
+        return source
     
     def compute_metrics(self, metric: str):
         if metric not in ['sinkhorn, chamfer, hausdorff']:

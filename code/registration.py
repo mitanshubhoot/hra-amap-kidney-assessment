@@ -3,7 +3,8 @@ import subprocess
 import numpy as np
 import open3d as o3d
 
-from utils.transforms import txt_to_numpy, numpy_to_pointcloud
+from utils.transforms import txt_to_numpy, txt_to_pandas, numpy_to_pointcloud
+from utils.preprocess import normalize_bcpd
 
 def compute_features(organ, params):
         # downsample
@@ -61,14 +62,14 @@ def rigid_registration(source, target, params):
 
     # apply and record the transform
     source.transformed_rigid = source.pointcloud.transform(source.refine_registration)
-
+    
     return source
 
 
 def nonrigid_registration(source, target, params):
     # save the source and target point clouds 
-    np.savetxt(f"{source.file_name}.txt", np.array(source.transformed_rigid.points), delimiter=',')
-    np.savetxt(f"{target.file_name}.txt", np.array(target.pointcloud.points), delimiter=',')
+    np.savetxt(f"../../{source.file_name}.txt", np.array(source.transformed_rigid.points), delimiter=',')
+    np.savetxt(f"../../{target.file_name}.txt", np.array(target.pointcloud.points), delimiter=',')
 
     # run BCPD
     result = subprocess.run(['./bcpd', 
@@ -80,10 +81,13 @@ def nonrigid_registration(source, target, params):
                              capture_output=True)
     
     # record transformations
-    source.dvf = txt_to_numpy('../../bcpd/output_v.txt')
+    source.dvf = np.genfromtxt('../../bcpd/output_u.txt') - normalize_bcpd(source.pointcloud)
     source.translation_nonrigid = txt_to_numpy('../../bcpd/output_t.txt')
     source.scale_nonrigid = txt_to_numpy('../../bcpd/output_s.txt')
     source.rotation_nonrigid = txt_to_numpy('../../bcpd/output_r.txt')
+
+    # record correspondences
+    source.correspondence = txt_to_pandas('../../bcpd/output_e.txt')
     
     # record transform
     source.transformed_nonrigid = numpy_to_pointcloud(txt_to_numpy('../../bcpd/output_y.txt'))
