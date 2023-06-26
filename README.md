@@ -8,9 +8,9 @@ Setup instructions:
 
 2. Clone the repository ```git clone https://github.com/ohirose/bcpd.git``` that implements the Bayesian Coherent Point Drift algorithm based on the following paper A Bayesian Formulation of Coherent Point Drift[https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8985307]. The repository is ~1GB in file size hence it is not shipped with our repository and requires additional setup: 
 
-    * Windows
+    * For Windows
 
-    No setup required.  
+       1. No setup required.  
 
     * For MacOS and Linux
 
@@ -20,4 +20,4 @@ Setup instructions:
 
 3. Ensure that the two repositories (hra-amap and bcpd) are at the **same root level**. 
 
-2. To run a quick registration using the provided pipeline, please see ```notebooks/pipeline_usage``` 
+4. To run a quick registration using the provided pipeline, please see ```notebooks/pipeline_usage``` 
