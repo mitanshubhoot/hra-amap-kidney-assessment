@@ -1,75 +1,20 @@
 import numpy as np
 import open3d as o3d
 
-from utils.conversions import pointcloud_to_numpy, numpy_to_pointcloud
+from utils.conversions import to_array, to_mesh, to_pointcloud
 
-def scale(pointcloud, kind='unit'):
-    if kind == 'unit':
-        return np.max(pointcloud.get_max_bound() - pointcloud.get_min_bound())
-    elif kind == 'stddev':
-        array = pointcloud_to_numpy(pointcloud)
-        return np.sqrt(np.sum(np.square(array - mean)) / (array.shape[0] * array.shape[1]))
-    else:
-        raise ValueError("kind parameter should be one of unit or stddev")    
 
-# def denormalize_icp(normalized_pointcloud, params):
-#     # get scale
-#     scale = params['scale']
-#     # calculate center
-#     center = params['center']
-#     # denormalize
-#     pointcloud = normalized_pointcloud.scale((1 / scale), center=center)
-#     return pointcloud
+def mean(geometry):
+    return to_array(geometry).mean(axis=0)
 
-def mean(pointcloud):
-    array = pointcloud_to_numpy(pointcloud)
-    mean = np.mean(array, axis=0)
-    return mean
-
-def scale_for_bcpd(array, mean):
-    scale = np.sqrt(np.sum(np.square(array - mean)) / (array.shape[0] * array.shape[1]))
+def scale(geometry, method='unit'):
+    if method == 'unit':
+        scale = (1 / np.max(to_pointcloud(geometry).get_max_bound() - to_pointcloud(geometry).get_min_bound()))
+    if method == 'stddev':
+        center = mean(geometry)
+        array = to_array(geometry)
+        scale = (1 / (np.sqrt(np.sum(np.square(array - center) / (array.shape[0] * array.shape[1])))))
     return scale
-
-# def normalize_bcpd(pointcloud, scale=None, mean=None, return_params=False):
-#     array = pointcloud_to_numpy(pointcloud)
-#     # calculate mean
-#     if not isinstance(mean, np.ndarray):
-#         mean = mean_bcpd(array)
-
-#     # calculate scale
-#     if not isinstance(scale, float):
-#         scale = scale_bcpd(array, mean)
-
-#     # normalize and return
-#     array -= mean
-#     array /= scale
-
-#     # convert back to pointcloud
-#     normalized_pointcloud = numpy_to_pointcloud(array)
-
-#     if return_params:
-#         return (normalized_pointcloud, 
-#                 {'scale': scale, 'mean': mean})
-#     else:
-#         normalized_pointcloud
-
-# def denormalize_bcpd(pointcloud, mean=None, scale=None):
-#     array = pointcloud_to_numpy(pointcloud)
-#     # calculate mean
-#     if not isinstance(mean, np.ndarray):
-#         mean = mean_bcpd(pointcloud)
-
-#     # calculate scale
-#     if not isinstance(scale, float):
-#         scale = scale_bcpd(pointcloud, mean)
-
-#     # de-normalize
-#     array *= scale
-#     array += mean
-
-#     # convert back to pointcloud
-#     denormalized_pointcloud = numpy_to_pointcloud(array)
-#     return denormalized_pointcloud
 
 def compute_features(pointcloud, params):
         # estimate normals

@@ -4,20 +4,21 @@ import open3d as o3d
 
 from decorators import step
 from dataclass import Transform
-from utils.conversions import pointcloud_to_numpy, numpy_to_pointcloud, txt_to_numpy
-from utils.preprocess import scale, mean, compute_features
+from utils.conversions import pointcloud_to_numpy, numpy_to_pointcloud, txt_to_numpy, pointcloud_to_mesh
+from utils.preprocess import scale, compute_features
 
 @step(name='Normalize ICP', description='Scale organs to a common range about the centre')
 def normalize_rigid(source, target):
     # scale
-    source_scale, target_scale = scale(source, kind='unit'), scale(target, kind='unit')
+    source_scale = scale(source, method='unit') 
+    target_scale = scale(target, method='unit')    
 
     # create transform
-    source_transform = Transform(scale=(1/source_scale), scale_center=source.get_center())
-    target_transform = Transform(scale=(1/target_scale), scale_center=target.get_center())
+    source_transform = Transform(scale=source_scale)
+    target_transform = Transform(scale=target_scale)
 
     # apply
-    source, target = source_transform(source), target_transform(target)
+    source, target = source_transform(source, center=True), target_transform(target, center=True)
 
     # store outputs
     outputs = {'Source': source, 'Target': target}
@@ -26,6 +27,10 @@ def normalize_rigid(source, target):
     transforms = {'Source': source_transform, 'Target': target_transform}
     
     return (outputs, transforms)
+
+@step(name='Flip', description='Flip organ about the Y-axis to account for Left and Reft organ differences')
+def flip(source, target):
+    raise NotImplementedError
 
 @step(name='Global Registration', description='Initial, fast registration before rigid registration')
 def global_registration(source, target, params):
@@ -67,7 +72,7 @@ def refine_registration(source, target, params, transform):
     result = o3d.pipelines.registration.registration_icp(source, 
                                                          target, 
                                                          distance_threshold, 
-                                                         transform['Source'], 
+                                                         transform['Source'].matrix, 
                                                          o3d.pipelines.registration.TransformationEstimationPointToPlane())
     
     # create transform
@@ -89,19 +94,17 @@ def refine_registration(source, target, params, transform):
 @step(name='Normalize BCPD', description='Normalize location and scale before nonrigid registration')
 def normalize_nonrigid(source, target):
     # calculate scale
-    source_scale, target_scale = scale(source, kind='stddev'), scale(target, kind='stddev')
-
-    # calculate mean
-    source_mean, target_mean = mean(source), mean(target)
+    source_scale = scale(source, method='stddev')
+    target_scale = scale(target, method='stddev')
 
     # create transform
-    source_transform = Transform(scale=(1/source_scale), translate=-source_mean)
-    target_transform = Transform(scale=(1/target_scale), translate=-target_mean)
+    source_transform = Transform(scale=source_scale)
+    target_transform = Transform(scale=target_scale)
 
     # apply
-    source, target = source_transform(source), target_transform(target)
+    source, target = source_transform(source, center=True), target_transform(target, center=True)
 
-    # store outputs
+    # store outputss
     outputs = {'Source': source, 
               'Target': target}
     
@@ -124,8 +127,8 @@ def nonrigid_registration(source, target, params):
 
     # register using BCPD
     result = subprocess.run(['./bcpd', 
-                             '-x', f"../source.txt", 
-                             '-y', f"../target.txt", 
+                             '-x', f"../target.txt", 
+                             '-y', f"../source.txt", 
                              '-J', '300', '-K', '70', '-p', '-u', 'n', '-c', str(params['distance_threshold']), '-r', str(params['seed']), '-n', str(params['max_iterations']), '-l', str(params['lambda']), '-b', str(params['beta']),
                              '-s', 'A'], 
                              cwd="../../bcpd",
@@ -157,18 +160,8 @@ def nonrigid_registration(source, target, params):
 
 @step(name='Denormalization BCPD', description='Denormalize the organ after projection')
 def denormalize_nonrigid(source, target, transforms):
-    # get scale
-    source_scale, target_scale = transforms['Source'].scale, transforms['Target'].scale
-
-    # calculate mean
-    source_mean, target_mean = transforms['Source'].mean, transforms['Target'].mean
-
-    # create transform
-    source_transform = Transform(scale=source_scale, translate=source_mean)
-    target_transform = Transform(scale=target_scale, translate=target_mean)
-
     # apply
-    source, target = source_transform(source), target_transform(target)
+    source, target = transforms['Target'].invert(source), transforms['Target'].invert(target)
 
     # store outputs
     outputs = {'Source': source, 
@@ -181,18 +174,8 @@ def denormalize_nonrigid(source, target, transforms):
 
 @step(name='Denormalization ICP', description='Denormalize the organ after projection')
 def denormalize_rigid(source, target, transforms):
-    # get scale
-    source_scale, target_scale = transforms['Source'].scale, transforms['Target'].scale
-
-    # get scale center
-    source_center, target_center = transforms['Source'].scale_center, transforms['Target'].scale_center
-
-    # create transform
-    source_transform = Transform(scale=source_scale, scale_center=source_center)
-    target_transform = Transform(scale=target_scale, scale_center=target_center)
-
     # apply
-    source, target = source_transform(source), target_transform(target)
+    source, target = transforms['Target'].invert(source), transforms['Target'].invert(target)
 
     # store outputs
     outputs = {'Source': source, 

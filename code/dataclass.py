@@ -5,64 +5,72 @@ import open3d as o3d
 
 from typing import Any, Optional
 from dataclasses import dataclass
-from utils.conversions import pointcloud_to_numpy, numpy_to_pointcloud
+from utils.preprocess import mean
+from utils.conversions import to_array, to_pointcloud, to_mesh
 from organ import Organ
+
+from scipy.spatial.transform import Rotation  
+
 
 @dataclass
 class Transform: 
-    scale: list = None
-    rotate: list = None
-    translate: list = None
-    deformation_vector_field: Optional[np.ndarray] = np.zeros(shape=(3, 1))
+    scale: float = 1.0
+    rotate: Optional[np.ndarray | tuple] = (0, 0, 0)
+    translate: tuple = (0, 0, 0)
+    deformation_vector_field: Optional[np.ndarray] = None
     matrix: np.ndarray = None
-    scale_center: Optional[float] = False
-    rotate_center: bool = False
-    translate_relative: bool = True
+    rotate_axes: str = 'xyz'
 
-    def apply_scaling(self, geometry):
-        if isinstance(geometry, o3d.geometry.PointCloud):
-            return geometry.scale(self.scale, center=self.scale_center)
-        else: 
-            return geometry.apply_scale(self.scale)    
-        
-    def apply_translation(self, geometry):
-        if isinstance(geometry, o3d.geometry.PointCloud):
-            return geometry.translate(self.translate, relative=self.translate_relative)
-        else: 
-            return geometry.apply_translation(self.translate)  
-
-    def apply_rotation(self, geometry):
-        if isinstance(geometry, o3d.geometry.PointCloud):
-            return geometry.rotate(self.rotate, center=self.rotate_center)
-        else: 
-            return geometry.apply_rotation(self.rotate) 
-        
-    def apply_matrix(self, geometry):
-        if isinstance(geometry, o3d.geometry.PointCloud):
-            return geometry.transform(self.matrix)
-        else: 
-            return geometry.apply_transform(self.matrix) 
-
-    def __call__(self, geometry):
-        if self.deformation_vector_field:
-            assert isinstance(geometry, o3d.geometry.PointCloud), "DVF transformations only supported on pointclouds"
-            geometry = pointcloud_to_numpy(geometry)
-            geometry = ((self.scale * self.rotate) @ ((geometry + self.deformation_vector_field) + self.translate).T).T
-            return numpy_to_pointcloud(geometry)
-        
-        # if a 4x4 matrix is provided, individual transformations will be overriden
-        if self.matrix:
-            return self.apply_matrix(geometry)
-
+    def __post_init__(self):
+        if isinstance(self.matrix, np.ndarray):
+            pass
         else:
-            if self.scale:
-                geometry = self.apply_scaling(geometry)
-            if self.rotate:
-                geometry = self.apply_rotation(geometry)
-            if self.translate:
-                geometry = self.apply_translation(geometry)
+            # check if rotation is a matrix or tuple of angles
+            if isinstance(self.rotate, tuple):
+                # find rotation matrix from angles if tuple
+                rotation_matrix = Rotation.from_euler(seq=self.rotate_axes, angles=self.rotate, degrees=True).as_matrix()
+            else: 
+                rotation_matrix = self.rotate     
+            # construct a 4x4 transformation matrix
+            self.matrix = np.empty((4, 4))
+            self.matrix[:3, :3] = rotation_matrix * self.scale
+            self.matrix[:3, 3] = self.translate
+            self.matrix[3, :] = [0, 0, 0, 1]
+
+    def transform(self, geometry, invert=False):
+        if isinstance(geometry, o3d.geometry.PointCloud):
+            return geometry.transform(self.matrix if not invert else self.inverse)
+        else: 
+            return geometry.apply_transform(self.matrix if not invert else self.inverse)
+        
+    def invert(self, geometry):
+        if isinstance(self.deformation_vector_field, np.ndarray):
+            raise ValueError("Inversion not supported on DVF transformations")
+        self.inverse = np.linalg.inv(self.matrix)
+        geometry = self.transform(geometry, invert=True)
+        if self.centered:
+            array = to_array(geometry) + self.mean
+            geometry = to_pointcloud(array) if isinstance(geometry, o3d.geometry.PointCloud) else to_mesh(array, geometry.faces)
         return geometry
     
+    def center(self, geometry):
+        self.mean = mean(geometry)
+        array = to_array(geometry) - self.mean
+        geometry = to_pointcloud(array) if isinstance(geometry, o3d.geometry.PointCloud) else to_mesh(array, geometry.faces)
+        self.centered = True
+        return geometry
+
+    def __call__(self, geometry, center=False):
+        if center:
+            geometry = self.center(geometry)
+        if isinstance(self.deformation_vector_field, np.ndarray):
+            assert isinstance(geometry, o3d.geometry.PointCloud), "DVF transformations only supported on pointclouds"
+            geometry = to_array(geometry)
+            geometry = ((self.scale * self.rotate) @ ((geometry + self.deformation_vector_field) + self.translate).T).T
+            return to_pointcloud(geometry)
+        else:
+            return self.transform(geometry)
+        
 @dataclass
 class PipelineStep:
     name: str
@@ -79,7 +87,7 @@ class Projection:
     source: Organ
     target: Organ
     transformations: list[dict[Transform]]
-    registeration: trimesh.base.Trimesh
+    registration: trimesh.base.Trimesh
 
     @classmethod
     def load(cls, path: str):
@@ -87,10 +95,3 @@ class Projection:
 
     def export(self):
         raise NotImplementedError
-
-# @dataclass
-# class PipelineOutput:
-#     id: str
-#     description: str
-#     steps: dict[PipelineStep] = {}
-

@@ -9,7 +9,7 @@ def step(name, description):
   def execute_step(func):
     def wrapper(**kwargs):
       # record inputs
-      step.inputs = {'Source': kwargs['source_pointcloud'], 'Target': kwargs['target_pointcloud']}
+      step.inputs = {'Source': kwargs['source'], 'Target': kwargs['target']}
 
       # execute function
       outputs, transforms = func(**kwargs)

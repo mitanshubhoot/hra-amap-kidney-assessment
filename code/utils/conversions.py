@@ -4,6 +4,30 @@ import pandas as pd
 import open3d as o3d
 
 
+def to_array(geometry):
+    if isinstance(geometry, o3d.geometry.PointCloud):
+        return pointcloud_to_numpy(geometry)
+    elif isinstance(geometry, trimesh.base.Trimesh):
+        return mesh_to_numpy(geometry)
+    else: 
+        return geometry
+    
+def to_pointcloud(geometry):
+    if isinstance(geometry, np.ndarray):
+        return numpy_to_pointcloud(geometry)
+    elif isinstance(geometry, trimesh.base.Trimesh):
+        return mesh_to_pointcloud(geometry)
+    else: 
+        return geometry
+    
+def to_mesh(geometry, faces):
+    if isinstance(geometry, np.ndarray):
+        return numpy_to_mesh(geometry, faces)
+    elif isinstance(geometry, o3d.geometry.PointCloud):
+        return pointcloud_to_mesh(geometry, faces)
+    else: 
+        return geometry
+
 def mesh_to_pointcloud(mesh: trimesh.base.Trimesh) -> o3d.geometry.PointCloud:
     """Converts a trimesh mesh object to an open3d compatible point cloud"""
     pcd = o3d.geometry.PointCloud()
@@ -22,7 +46,7 @@ def numpy_to_pointcloud(numpy_array: np.ndarray) -> o3d.geometry.PointCloud:
     pcd.estimate_normals()
     return pcd
 
-def numpy_to_mesb(numpy_array: np.ndarray, faces: np.ndarray) -> trimesh.base.Trimesh:
+def numpy_to_mesh(numpy_array: np.ndarray, faces: np.ndarray) -> trimesh.base.Trimesh:
     return trimesh.Trimesh(vertices=numpy_array, faces=faces)
 
 def pointcloud_to_numpy(pointcloud: o3d.geometry.PointCloud) -> np.ndarray:
