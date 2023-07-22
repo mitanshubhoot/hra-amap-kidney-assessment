@@ -1,47 +1,31 @@
 import numpy as np
+import open3d as o3d
 
-def normalize(pcd):
-    return pcd.scale(1 / np.max(pcd.get_max_bound() - pcd.get_min_bound()), center=pcd.get_center())
+from utils.conversions import to_array, to_mesh, to_pointcloud
 
-def denormalize(pcd, ref):
-    return pcd.scale(np.max(ref.get_max_bound() - ref.get_min_bound()), center=ref.get_center())
 
-def mean_bcpd(pointcloud):
-    array = np.asarray(pointcloud.points).copy()
-    mean = np.mean(array, axis=0)
-    return mean
+def mean(geometry):
+    return to_array(geometry).mean(axis=0)
 
-def scale_bcpd(pointcloud, mean):
-    array = np.asarray(pointcloud.points).copy()
-    scale = np.sqrt(np.sum(np.square(array - mean)) / (array.shape[0] * array.shape[1]))
+def scale(geometry, method='unit'):
+    if method == 'unit':
+        scale = (1 / np.max(to_pointcloud(geometry).get_max_bound() - to_pointcloud(geometry).get_min_bound()))
+    if method == 'stddev':
+        center = mean(geometry)
+        array = to_array(geometry)
+        scale = (1 / (np.sqrt(np.sum(np.square(array - center) / (array.shape[0] * array.shape[1])))))
     return scale
 
-def normalize_bcpd(pointcloud, mean=None, scale=None):
-    array = np.asarray(pointcloud.points).copy()
-    # calculate mean
-    if not isinstance(mean, np.ndarray):
-        mean = mean_bcpd(pointcloud)
+def compute_features(pointcloud, params):
+        # estimate normals
+        radius_normal = params['voxel_size'] * 2
+        pointcloud.estimate_normals(o3d.geometry.KDTreeSearchParamHybrid(radius=radius_normal, 
+                                                                         max_nn=params['max_nn']))
 
-    # calculate scale
-    if not isinstance(scale, float):
-        scale = scale_bcpd(pointcloud, mean)
+        # compute features
+        radius_feature = params['voxel_size'] * 5
+        fpfh_features = o3d.pipelines.registration.compute_fpfh_feature(pointcloud, 
+                                                                        o3d.geometry.KDTreeSearchParamHybrid(radius=radius_feature, 
+                                                                                                             max_nn=params['max_nn']))
 
-    # normalize and return
-    array -= mean
-    array /= scale
-    return array
-
-def denormalize_bcpd(pointcloud, mean=None, scale=None):
-    array = np.asarray(pointcloud.points)
-    # calculate mean
-    if not isinstance(mean, np.ndarray):
-        mean = mean_bcpd(pointcloud)
-
-    # calculate scale
-    if not isinstance(scale, float):
-        scale = scale_bcpd(pointcloud, mean)
-
-    # de-normalize and return
-    array *= scale
-    array += mean
-    return array
+        return fpfh_features

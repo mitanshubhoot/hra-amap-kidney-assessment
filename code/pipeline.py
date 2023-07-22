@@ -1,14 +1,22 @@
 import yaml
+import uuid
 
-from registration import rigid_registration, nonrigid_registration
-from utils.preprocess import normalize
-from utils.metrics import sinkhorn, chamfer, hausdorff
-from utils.transforms import pointcloud_to_mesh
+from copy import deepcopy
+from scipy.spatial import distance
+
 from organ import Organ
+from dataclass import Projection
+from steps import *
+from utils.conversions import to_mesh
+from utils.metrics import sinkhorn, chamfer, hausdorff
 
 
-class RegistrationPipeline():
-    def __init__(self, params: str) -> None:
+class Pipeline():
+    def __init__(self, name: str, description: str, params: str) -> None:
+        self.__id = uuid.uuid4()
+        self.name = name
+        self.description = description
+        self.steps = {}
         with open(params) as f:
             self.params = yaml.safe_load(f)
 
@@ -19,25 +27,52 @@ class RegistrationPipeline():
         raise NotImplementedError
 
     def run(self, source: Organ, target: Organ):
-        # normalize
-        source.pointcloud, target.pointcloud = normalize(source.pointcloud), normalize(target.pointcloud)
+        # Step 1: Normalize (ICP)
+        self.steps['normalize_rigid'] = normalize_rigid(source=deepcopy(source.pointcloud), 
+                                                        target=deepcopy(target.pointcloud))
 
-        # rigid registration
-        source = rigid_registration(source, target, params=self.params['rigid_registration'])
+        # Step 2: Global (Fast) Registration
+        self.steps['global_registration'] = global_registration(source=deepcopy(self.steps['normalize_rigid'].output['Source']), 
+                                                                target=deepcopy(self.steps['normalize_rigid'].output['Target']), 
+                                                                params=self.params['rigid_registration'])
+        
+        # Step 3: Rigid Registration
+        self.steps['refine_registration'] = refine_registration(source=deepcopy(self.steps['normalize_rigid'].output['Source']), 
+                                                                target=deepcopy(self.steps['normalize_rigid'].output['Target']),
+                                                                transform=self.steps['global_registration'].transform, 
+                                                                params=self.params['rigid_registration'])
 
-        # nonrigid registration
-        source = nonrigid_registration(source, target, params=self.params['nonrigid_registration'])
+        # Step 4: Normalize (BCPD)
+        self.steps['normalize_nonrigid'] = normalize_nonrigid(source=deepcopy(self.steps['refine_registration'].output['Source']), 
+                                                              target=deepcopy(self.steps['normalize_rigid'].output['Target']))
 
-        # registered organ
-        source.registered = pointcloud_to_mesh(source.transformed_nonrigid, source.faces)
+        # Step 5: Non-rigid Registration (BCPD)
+        self.steps['nonrigid_registration'] = nonrigid_registration(source=deepcopy(self.steps['normalize_nonrigid'].output['Source']), 
+                                                                    target=deepcopy(self.steps['normalize_nonrigid'].output['Target']),
+                                                                    params=self.params['nonrigid_registration'])
 
-        # add registration params to the registered organ
-        source.registered.params = self.params
+        # Step 6: Denormalization (BCPD)
+        self.steps['denormalize_nonrigid'] = denormalize_nonrigid(source=deepcopy(self.steps['nonrigid_registration'].output['Source']),
+                                                                  target=deepcopy(self.steps['nonrigid_registration'].output['Source']),
+                                                                  transforms=self.steps['normalize_nonrigid'].transform)
+        
+        # Step 7: Denormalization (ICP)
+        self.steps['denormalize_rigid'] = denormalize_rigid(source=deepcopy(self.steps['denormalize_nonrigid'].output['Source']),
+                                                            target=deepcopy(self.steps['denormalize_nonrigid'].output['Source']),
+                                                            transforms=self.steps['normalize_rigid'].transform)
+        
+        # consolidate projections
+        projections = Projection(id=self.__id, 
+                                 description=self.description, 
+                                 source=source, 
+                                 target=target,
+                                 params=self.params,
+                                 registration=to_mesh(self.steps['denormalize_rigid'].output['Source'], source.faces),
+                                 transformations=[(name, step.transform['Source']) for name, step in self.steps.items() if step.transform])
 
-        return source
-    
+        return projections
+
     def compute_metrics(self, metric: str):
         if metric not in ['sinkhorn, chamfer, hausdorff']:
             raise ValueError(f"{metric} not recognized, must be one of sinkhorn, chamfer or hausdorff")
         return metric(self.result)
-    

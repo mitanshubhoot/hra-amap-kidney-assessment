@@ -3,49 +3,43 @@ import trimesh
 import numpy as np
 
 from pathlib import Path
-from utils.io import load, make_export_dirs
-from utils.transforms import mesh_to_pointcloud
+
+from dataclass import Transform
+from utils.io import load, read_yaml
+from utils.conversions import to_array, to_pointcloud
 
 class Organ(trimesh.Trimesh):
     def __init__(self, path: str, metadata: dict = None) -> None:
         super(Organ, self).__init__()
         self.path = Path(path)
-        self.file_name = self.path.stem
-        self.file_type = self.path.suffix
-        self.faces, self.vertices = load(self.path, self.file_type)
-        self.pointcloud = mesh_to_pointcloud(self)
+        self.name = self.path.stem
+        self.file_type = self.path.suffix if self.path.suffix else '.glb'
+        self.mappings = read_yaml('../configs/atlas_paths.yaml')
+        self.hra_transforms = read_yaml('../configs/hra_transforms.yaml')
         if metadata:
             self.metadata = metadata
+        if self.name in self.mappings['RUI']:
+            self.faces, self.vertices = load(self.mappings['RUI'][self.name], self.file_type)
+            self.target_transform = self._get_transform()
+        else:
+            self.faces, self.vertices = load(self.path, self.file_type)
+            self.target_transform = None
 
-    def export_projections(self, export_dir: str):
-        # check if projections have been computed
-        assert hasattr(self, 'registered'), "No projections found. Please run the registration pipeline first"
+    @property
+    def pointcloud(self):
+        return to_pointcloud(self)
 
-        # create appropriate export dirs
-        parent_dir = make_export_dirs(export_dir)
+    @property
+    def array(self):
+        return to_array(self)
 
-        # save registered mesh
-        self.registered.export(parent_dir / 'mesh' / 'registered.glb')
-
-        # save rigid projection
-        np.save(parent_dir / 'projections' / 'rigid_projection.npy', self.refine_registration)
-
-        # save nonrigid projections
-        np.save(parent_dir / 'projections' / 'dvf.npy', self.dvf)
-        np.save(parent_dir / 'projections' / 'nonrigid_translation.npy', self.translation_nonrigid)
-        np.save(parent_dir / 'projections' / 'nonrigid_scale.npy', self.scale_nonrigid)
-        np.save(parent_dir / 'projections' / 'nonrigid_rotation.npy', self.rotation_nonrigid)
-
-        # save correspondence
-        self.correspondence.to_csv(parent_dir / 'correspondence' / 'correspondence.csv')
-
-        # save the registration params
-        with open(parent_dir / 'params.yaml', 'w') as file:
-            yaml.dump(self.registered.params, file)
-    
-    def project(blocks: list):
-        raise NotImplementedError
-        
+    def _get_transform(self):
+        """Get the necessary transform shift the target HRA organ (it's back-bottom-left) to the world origin (0, 0, 0)"""
+        hra_transform = self.hra_transforms[self.name]
+        target_transform = Transform(hra_transform['scaling'], 
+                                     hra_transform['rotation'], 
+                                     np.array(hra_transform['translation']) / 1e3)
+        return target_transform
     
 
     
