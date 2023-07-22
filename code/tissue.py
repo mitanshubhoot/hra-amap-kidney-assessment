@@ -1,10 +1,17 @@
+import uuid
 import trimesh
 import numpy as np
 
 from enum import Enum
 from scipy.spatial.transform import Rotation
 
-from utils.io import read_yaml
+from pathlib import Path
+from copy import deepcopy
+from datetime import datetime
+from functools import lru_cache
+from dataclass import Transform
+from utils.io import read_yaml, write_json
+from utils.conversions import to_pointcloud, to_array, split_transform
 
 
 class DivisionFactor(Enum):
@@ -13,83 +20,150 @@ class DivisionFactor(Enum):
     meter = 1
 
 class TissueBlock(trimesh.Trimesh):
-    def __init__(self, sample: dict, metadata: dict = None) -> None:
+    def __init__(self, vertices, faces, metadata: dict = None) -> None:
         super(TissueBlock, self).__init__()
-        self.mappings = read_yaml('../atlas_paths.yaml')
-        self.id = sample['@id']
-        self.donor_id = self.id.split('_')[0]
-        self.target = trimesh.load(self.mappings['RUI'][sample['rui_location']['placement']['target'].split('#')[-1]], 
-                                   force='mesh')
-        self.dimension_units = sample['rui_location']['dimension_units']
-        self.size, self.scaling, self.translation, self.rotation = self._unpack_spatial_params(sample)
-        self.faces, self.vertices = self._build()
+        self.vertices, self.faces = (vertices, faces)
+        if metadata:
+            self.metadata = metadata
+        self.mappings = read_yaml('../configs/atlas_paths.yaml')
+        self.hra_transforms = read_yaml('../configs/hra_transforms.yaml')
 
-    def _unpack_spatial_params(self, sample):
-        division_factor = getattr(DivisionFactor, self.dimension_units).value
+    @property
+    def pointcloud(self):
+        return to_pointcloud(self)
+
+    @property
+    def array(self):
+        return to_array(self)
+    
+    @classmethod
+    def from_donor(cls, donor: dict):
+        raise NotImplementedError
+            
+    @classmethod
+    def from_sample(cls, sample: dict, donor: dict):
+        dimension_units = sample['rui_location']['dimension_units']
+        division_factor = getattr(DivisionFactor, dimension_units).value
 
         # size
         size = (sample['rui_location']['x_dimension'] / division_factor, 
                 sample['rui_location']['y_dimension'] / division_factor, 
                 sample['rui_location']['z_dimension'] / division_factor)
-        
-        # scale
-        scaling = (sample['rui_location']['placement']['x_scaling'], 
-                   sample['rui_location']['placement']['y_scaling'], 
-                   sample['rui_location']['placement']['z_scaling'])
+        # create block
+        block = trimesh.creation.box(extents=size, origin=(0, 0, 0))
+        block = cls(vertices=block.vertices, faces=block.faces, metadata=sample['rui_location'])
+
+        # add attributes
+        block.division_factor = division_factor
+        block.label = sample.get('label', None)
+        block.donor = donor
+
+        # get transforms
+        block.target_transform = block._get_target_transform()
+        block.transform = block._get_block_transform()
+
+        # transform block to world (glb) coordinates
+        block = block.transform(block)
+        block = block.target_transform.invert(block)
+
+        return block
+
+    @classmethod
+    def from_geometry(cls, geometry, donor, target_name: str, label=None):
+        block = cls(geometry.vertices, geometry.faces)
+
+        # add attributes
+        block.label = label
+        block.donor = donor
+        block.target_name = target_name
+        block.division_factor = 1e3
+
+        # get transforms
+        block.target_transform = block._get_target_transform()
+
+        return block
+    
+    def _get_block_transform(self):
+         # scale
+        scaling = (self.metadata['placement']['x_scaling'], 
+                   self.metadata['placement']['y_scaling'], 
+                   self.metadata['placement']['z_scaling'])
         
         # translation
-        translation = (sample['rui_location']['placement']['x_translation'] / division_factor, 
-                        sample['rui_location']['placement']['y_translation'] / division_factor, 
-                        sample['rui_location']['placement']['z_translation'] / division_factor)
+        translation = (self.metadata['placement']['x_translation'] / self.division_factor, 
+                       self.metadata['placement']['y_translation'] / self.division_factor, 
+                       self.metadata['placement']['z_translation'] / self.division_factor)
 
         # rotation
-        rotation = (sample['rui_location']['placement']['x_rotation'], 
-                    sample['rui_location']['placement']['y_rotation'], 
-                    sample['rui_location']['placement']['z_rotation'])     
+        rotation = (self.metadata['placement']['x_rotation'], 
+                    self.metadata['placement']['y_rotation'], 
+                    self.metadata['placement']['z_rotation']) 
         
-        return (size, scaling, translation, rotation)  
-    
-    def _locate_origin(self):
-        """Calculate the bottom-back-left corner of the target organ"""
-        bbox_coords = self.target.bounding_box_oriented.vertices
-        bottom_left_corner = bbox_coords[bbox_coords.sum(axis=1).argmin()]
-        return bottom_left_corner
-    
-    def _place_on_target(self, box):
-        """Apply necessary transforms to place the box where it is registered"""
-        # apply scaling
-        box = box.apply_scale(self.scaling)
+        block_transform = Transform(scale=scaling, rotate=rotation, translate=translation)
+        return block_transform
 
-        # find rotation matrix from angles
-        rotation_matrix = Rotation.from_euler(seq='xyz', angles=self.rotation, degrees=True).as_matrix()
-        # convert to 4x4 transformation matrix
-        rotation_transform = np.empty((4, 4))
-        rotation_transform[:3, :3] = rotation_matrix
-        rotation_transform[:3, 3] = [0, 0, 0]
-        rotation_transform[3, :] = [0, 0, 0, 1]
-        # apply rotation
-        box = box.apply_transform(rotation_transform)
-    
-        # apply translation
-        box = box.apply_translation(self.translation)
 
-        return box
+    def _get_target_transform(self):
+        """Get the necessary transform shift the target HRA organ (it's back-bottom-left) to the world origin (0, 0, 0)"""
+        if not hasattr(self, 'target_name'):
+            self.target_name = self.metadata['placement']['target'].split('#')[-1]
+        hra_transform = self.hra_transforms[self.target_name]
+        target_transform = Transform(hra_transform['scaling'], 
+                                     hra_transform['rotation'], 
+                                     np.array(hra_transform['translation']) / self.division_factor)
+        return target_transform
     
-    def _build(self):
-        # create box mesh
-        box = trimesh.creation.box(extents=self.size)
+    def to_sample(self, export_path: str):
+        # split the transform matrix back to individual transforms
+        scale, rotation, translation = split_transform(self.bounding_box.transform)
 
-        # find origin of the target organ
-        origin = self._locate_origin()
-    
-        # place origin of the box at the bottom-back-left
-        box = box.apply_translation(origin)
-        
-        # move box according to transforms
-        box = self._place_on_target(box)
-        
-        # return
-        return (box.faces, box.vertices) 
-    
+        # if metadata does not exist, insert default values 
+        # (this is for tissue blocks created using from_geometry method)
+        if not self.metadata:
+            self.metadata['@context'] = "https://hubmapconsortium.github.io/ccf-ontology/ccf-context.jsonld"
+            self.metadata['@id'] = str(uuid.uuid4())
+            self.metadata['@type'] = 'SpatialEntity'
+            self.metadata['creator'] = 'Bhargav Desai'
+            self.metadata['label'] = self.label
+            self.metadata['creation_date'] = datetime.today().strftime('%Y-%m-%d')
+            self.metadata['dimension_units'] = 'millimeter'
+            self.metadata['placement'] = dict()
+            self.metadata['placement']['@context'] = "https://hubmapconsortium.github.io/ccf-ontology/ccf-context.jsonld"
+            self.metadata['placement']['@id'] = f"{self.metadata['@id']}_placement"
+            self.metadata['placement']['@type'] = 'SpatialPlacement'
+            self.metadata['placement']['target'] = f'http://purl.org/ccf/latest/ccf.owl#{self.target_name}'
+            self.metadata['placement']['placement_date'] = self.metadata['creation_date']
+            self.metadata['placement']['scaling_units'] = 'ratio'
+            self.metadata['placement']['rotation_order'] = 'XYZ'
+            self.metadata['placement']['rotation_units'] = 'degree'
+            self.metadata['placement']['translation_units'] = 'millimeter'
+
+        # dimensions
+        self.metadata['x_dimension'] = self.bounding_box.extents[0].item() * self.division_factor
+        self.metadata['y_dimension'] = self.bounding_box.extents[1].item() * self.division_factor
+        self.metadata['z_dimension'] = self.bounding_box.extents[2].item() * self.division_factor
+
+        # update scaling 
+        self.metadata['placement']['x_scaling'] = scale[0].item()
+        self.metadata['placement']['y_scaling'] = scale[1].item()
+        self.metadata['placement']['z_scaling'] = scale[2].item()
+
+        # update rotation
+        self.metadata['placement']['x_rotation'] = rotation[0].item()
+        self.metadata['placement']['y_rotation'] = rotation[1].item()
+        self.metadata['placement']['z_rotation'] = rotation[2].item()
+
+        # update translation
+        self.metadata['placement']['x_translation'] = translation[0].item() * self.division_factor
+        self.metadata['placement']['y_translation'] = translation[1].item() * self.division_factor
+        self.metadata['placement']['z_translation'] = translation[2].item() * self.division_factor
+
+        # write to json
+        write_json(f"{Path(export_path) / f'{self.label}'}.json", self.metadata)
+
+    @lru_cache
     def show_on_target(self):
-        return trimesh.scene.Scene(geometry=[self, self.target]).show()
+        self.target = trimesh.load(self.mappings['RUI'][self.target_name], force='mesh')
+        return trimesh.scene.Scene(geometry=[self.target_transform(deepcopy(self)), 
+                                             trimesh.creation.axis(), 
+                                             self.target_transform(deepcopy(self.target))]).show()

@@ -66,8 +66,9 @@ class Pipeline():
                                  description=self.description, 
                                  source=source, 
                                  target=target,
+                                 params=self.params,
                                  registration=to_mesh(self.steps['denormalize_rigid'].output['Source'], source.faces),
-                                 transformations=[step.transform['Source'] for name, step in self.steps.items() if step.transform])
+                                 transformations=[(name, step.transform['Source']) for name, step in self.steps.items() if step.transform])
 
         return projections
 

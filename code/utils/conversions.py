@@ -3,6 +3,24 @@ import numpy as np
 import pandas as pd
 import open3d as o3d
 
+from scipy.spatial.transform import Rotation as R
+from sklearn.preprocessing import normalize
+
+def split_transform(matrix):
+    # retrieve the translation
+    translation = matrix[:3, 3]
+
+    # retrieve the rotation matrix
+    rotation_matrix = matrix[:3, :3]
+
+    # retrieve the scale from the rotation matrix
+    scale = np.linalg.norm(rotation_matrix, axis=0)
+
+    # retrive the rotation from the rotation matrix
+    rotation = normalize(rotation_matrix, axis=0, norm='l2')
+    rotation = R.from_matrix(rotation).as_euler('xyz', degrees=True)
+
+    return (scale, rotation, translation)
 
 def to_array(geometry):
     if isinstance(geometry, o3d.geometry.PointCloud):

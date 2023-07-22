@@ -59,7 +59,7 @@ def global_registration(source, target, params):
     
 
     # store transforms (no need to apply transform since this will be directly used to refine the registation)
-    transforms = {'Source': Transform(matrix=result.transformation), 
+    transforms = {'Source': Transform(matrix=result.transformation, apply=False), 
                   'Target': None}    
     
     return (None, transforms)
@@ -114,7 +114,6 @@ def normalize_nonrigid(source, target):
     
     return (outputs, transforms)
 
-
 @step(name='Non-rigid Registration', description='Registration using rigid and non-rigid (local deformations) with BCPD algorithm')
 def nonrigid_registration(source, target, params):
     # convert to array
@@ -137,7 +136,7 @@ def nonrigid_registration(source, target, params):
     # read transformations
     dvf = np.genfromtxt('../../bcpd/output_u.txt') - source_array
     translation = txt_to_numpy('../../bcpd/output_t.txt')
-    scale = txt_to_numpy('../../bcpd/output_s.txt')
+    scale = txt_to_numpy('../../bcpd/output_s.txt').item()
     rotation = txt_to_numpy('../../bcpd/output_r.txt')
     
     # create transform
@@ -152,11 +151,10 @@ def nonrigid_registration(source, target, params):
                'Registered': numpy_to_pointcloud(txt_to_numpy('../../bcpd/output_y.txt'))}
     
     # store transforms
-    transforms = {'Source': Transform(scale=scale, rotate=rotation, translate=translation, deformation_vector_field=dvf),
+    transforms = {'Source': transform,
                   'Target': None}
     
     return (outputs, transforms)
-
 
 @step(name='Denormalization BCPD', description='Denormalize the organ after projection')
 def denormalize_nonrigid(source, target, transforms):
@@ -168,7 +166,8 @@ def denormalize_nonrigid(source, target, transforms):
               'Target': target}
     
     # store transforms
-    transforms = None
+    transforms = {'Source': transforms['Target'],
+                  'Target': transforms['Target']}
     
     return (outputs, transforms)
 
@@ -182,7 +181,8 @@ def denormalize_rigid(source, target, transforms):
               'Target': target}
     
     # store transforms
-    transforms = None
+    transforms = {'Source': transforms['Target'],
+                  'Target': transforms['Target']}
     
     return (outputs, transforms)
 

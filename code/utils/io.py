@@ -23,30 +23,36 @@ def load(file_name: str, file_type: str) -> trimesh.Trimesh:
 
     return (mesh.faces, mesh.vertices)
 
-def make_export_dirs(export_dir: str):
-     # create a timestamp string using the current date and time
-    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-
-    # create the parent directory with the timestamp
-    parent_dir = Path(f'{export_dir}-{timestamp}')
-    parent_dir.mkdir()
-    
-    # create the subdirectories inside the parent directory
-    sub_dirs = ['mesh', 'projections', 'correspondence']
-    for sub_dir in sub_dirs:
-        sub_dir_path = parent_dir / sub_dir
-        Path(sub_dir_path).mkdir(parents=True, exist_ok=True)
-
-    return parent_dir
-
 def read_json(path: str) -> dict:
     """Reads a JSON file, returns a Python Dict object"""
     with open(path) as f:
         file = json.load(f)
     return file
 
+def write_json(path: str, data):
+    # write to json
+    with open(path, 'w') as f:
+        json.dump(data, f, indent='\t')
+
 def read_yaml(path: str) -> dict:
     """Reads a YAML file, returns a Python Dict object"""
     with open(path, "r") as f:
         file = yaml.safe_load(f)
     return file
+
+def write_yaml(path: str, data):
+    with open(path, 'w') as f:
+        yaml.dump(data, f, default_flow_style=False, sort_keys=False)
+
+def add_header(file_path: str):
+    header = '# yaml-language-server: $schema=https://raw.githubusercontent.com/hubmapconsortium/hra-rui-locations-processor/main/registrations.schema.json'
+    # read file
+    with open(file_path, 'r') as f:
+            text = f.read()
+
+    # append header
+    text = header + "\n" + "\n" + text
+
+    # write file
+    with open(file_path, "w") as f:
+        f.write(text)
