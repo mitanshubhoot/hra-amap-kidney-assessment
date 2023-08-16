@@ -1,4 +1,4 @@
-# hra-amap
+# HRA-AMap - Bidirectional Projections Between Human Atlas Systems for Data and Code Interoperability
 
 Code for AMap project. 
 
