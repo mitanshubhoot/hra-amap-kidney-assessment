@@ -1,0 +1,19 @@
+abstract: Bidirectional Projections Between Human Atlas Systems for Data and Code Interoperability.
+authors:
+  - family-names: Desai
+    given-names: Bhargav
+cff-version: 1.2.0
+date-released: "2023-10-13"
+identifiers:
+  - type: url
+    value: "https://github.com/cns-iu/hra-amap"
+    description: Latest version
+keywords:
+  - research
+  - "point cloud registration"
+  - "code"
+  - "data"
+license: MIT License
+message: If you use this software, please cite it using these metadata.
+repository-code: "https://github.com/cns-iu/hra-amap"
+title: AMap
