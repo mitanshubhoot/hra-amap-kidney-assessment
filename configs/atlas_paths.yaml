@@ -12,6 +12,7 @@ Source Datasets:
   SPARC Heart (Female): "../data/Heart/Source/humanHeart_F.glb"
   SPARC Heart (Generic): "../data/Heart/Source/humanHeart1.vtk"
   SPARC Large Intestine (Generic): "../data/Colon/Source/humanColon.vtk"
+  UPenn Generic Ovary: "../data/Ovary/Source/ovalry_segmented.fbx" 
   
 Reference Datasets:
   HRA Brain: "../data/Brain/Reference/Allen_M_Brain.glb"
@@ -20,10 +21,17 @@ Reference Datasets:
   HRA Heart (Male): "../data/Heart/Reference/VH_M_Heart.glb"
   HRA Heart (Female): "../data/Heart/Reference/VH_F_Heart.glb"
   HRA Large Intestine (Female): "../data/Colon/Reference/SBU_F_Intestine_Large.glb"
+  HRA Ovary (Female, Left): "../data/Ovary/Reference/VH_F_Ovary_L.glb" 
+  HRA Ovary (Female, Right): "../data/Ovary/Reference/VH_F_Ovary_R.glb" 
 
 RUI:
   VHMAllenBrain: "../data/Brain/Reference/Allen_M_Brain.glb"
   VHFLeftKidneyV1.1: "../data/Kidney/Reference/VH_F_Kidney_L.glb"
+  VHFRightKidneyV1.1: "../data/Kidney/Reference/VH_F_Kidney_R.glb"
+  VHMLeftKidney: "../data/Kidney/Reference/VH_M_Kidney_L.glb"
+  VHMRightKidney: "../data/Kidney/Reference/VH_M_Kidney_R.glb"
   VHMLiver: "../data/Liver/Reference/VH_M_Liver.glb"
   VHFPancreas: "../data/Pancreas/Reference/VH_F_Pancreas.glb"
   VHMPancreas: "../data/Pancreas/Reference/VH_M_Pancreas.glb"
+  VHFLeftOvary: "../data/Ovary/Reference/VH_F_Ovary_L.glb"
+  VHFRightOvary: "../data/Ovary/Reference/VH_F_Ovary_R.glb"

@@ -1,3 +1,31 @@
+VHFLeftOvary:
+  scaling: 
+    - 1.0
+    - 1.0
+    - 1.0
+  rotation: 
+    - 0
+    - 0 
+    - 0
+  translation: 
+    - -38.216304
+    - -48.9767827
+    - 50.7369228
+
+VHFRightOvary:
+  scaling: 
+    - 1.0
+    - 1.0
+    - 1.0
+  rotation: 
+    - 0
+    - 0 
+    - 0
+  translation: 
+    - 76.71706999999999
+    - -48.90892
+    - 50.8165732
+
 VHFPancreas:
   scaling: 
     - 1.0
@@ -50,9 +78,9 @@ VHFRightKidneyV1.1:
     - 0 
     - 0
   translation: 
-    x: 108.721532
-    y: -198.595762
-    z: 134.438053
+    - 108.721532
+    - -198.595762
+    - 134.438053
 
 VHMLeftKidney:
   scaling: 
