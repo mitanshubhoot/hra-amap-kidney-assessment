@@ -41,7 +41,7 @@ class TissueBlock(trimesh.Trimesh):
         raise NotImplementedError
             
     @classmethod
-    def from_sample(cls, sample: dict, donor: dict):
+    def from_sample(cls, sample: dict, donor: dict, target_name: str):
         dimension_units = sample['rui_location']['dimension_units']
         division_factor = getattr(DivisionFactor, dimension_units).value
 
@@ -57,12 +57,15 @@ class TissueBlock(trimesh.Trimesh):
         block.division_factor = division_factor
         block.label = sample.get('label', None)
         block.donor = donor
+        block.target_name = target_name
 
         # get transforms
         block.target_transform = block._get_target_transform()
         block.transform = block._get_block_transform()
 
-        # transform block to world (glb) coordinates
+        # move the origin of the block from the box centre to its back-bottom-left (0, 0, 0)
+        # block = block.apply_translation((block.extents[0] / 2, block.extents[1] / 2, block.extents[2] / 2))
+        # put the block as intended on the HRA organ
         block = block.transform(block)
         block = block.target_transform.invert(block)
 
@@ -105,6 +108,7 @@ class TissueBlock(trimesh.Trimesh):
 
     def _get_target_transform(self):
         """Get the necessary transform shift the target HRA organ (it's back-bottom-left) to the world origin (0, 0, 0)"""
+        # https://raw.githubusercontent.com/hubmapconsortium/hubmap-ontology/master/source_data/generated-reference-spatial-entities.jsonld
         if not hasattr(self, 'target_name'):
             self.target_name = self.metadata['placement']['target'].split('#')[-1]
         hra_transform = self.hra_transforms[self.target_name]
@@ -164,6 +168,6 @@ class TissueBlock(trimesh.Trimesh):
     @lru_cache
     def show_on_target(self):
         self.target = trimesh.load(self.mappings['RUI'][self.target_name], force='mesh')
-        return trimesh.scene.Scene(geometry=[self.target_transform(deepcopy(self)), 
+        return trimesh.scene.Scene(geometry=[self, 
                                              trimesh.creation.axis(), 
-                                             self.target_transform(deepcopy(self.target))]).show()
+                                             deepcopy(self.target)]).show()

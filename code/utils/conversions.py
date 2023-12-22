@@ -1,8 +1,10 @@
 import trimesh
+import vtk
 import numpy as np
 import pandas as pd
 import open3d as o3d
 
+from pathlib import Path
 from scipy.spatial.transform import Rotation as R
 from sklearn.preprocessing import normalize
 
@@ -96,4 +98,36 @@ def nii_to_mesh(path: str) -> trimesh.Trimesh:
     raise NotImplementedError
 
 def vtk_to_mesh(path: str) -> trimesh.Trimesh:
-    raise NotImplementedError
+    filename = Path(path)
+
+    try:
+        # read
+        reader = vtk.vtkGenericDataObjectReader()
+        reader.SetFileName(filename)
+        reader.Update()
+        
+        # write
+        writer = vtk.vtkSTLWriter()
+        writer.SetInputConnection(reader.GetOutputPort())
+        writer.SetFileName(f'{filename.stem}.stl')
+        writer.Write()
+
+        # read as trimesh instance and return
+        return trimesh.load(f'{filename.stem}.stl')
+    except:
+        reader = vtk.vtkUnstructuredGridReader()
+        reader.SetFileName(filename)
+
+        surface_filter = vtk.vtkDataSetSurfaceFilter()
+        surface_filter.SetInputConnection(reader.GetOutputPort())
+
+        triangle_filter = vtk.vtkTriangleFilter()
+        triangle_filter.SetInputConnection(surface_filter.GetOutputPort())
+
+        writer = vtk.vtkSTLWriter()
+        writer.SetFileName(f'{filename.stem}.stl')
+        writer.SetInputConnection(triangle_filter.GetOutputPort())
+        writer.Write()
+
+        # read as trimesh instance and return
+        return trimesh.load(f'{filename.stem}.stl')

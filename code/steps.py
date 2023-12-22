@@ -129,7 +129,7 @@ def nonrigid_registration(source, target, params):
                              '-x', f"../target.txt", 
                              '-y', f"../source.txt", 
                              '-J', '300', '-K', '70', '-p', '-u', 'n', '-c', str(params['distance_threshold']), '-r', str(params['seed']), '-n', str(params['max_iterations']), '-l', str(params['lambda']), '-b', str(params['beta']),
-                             '-s', 'A'], 
+                             '-s', 'yxuveTY'], 
                              cwd="../../bcpd",
                              capture_output=True)
     

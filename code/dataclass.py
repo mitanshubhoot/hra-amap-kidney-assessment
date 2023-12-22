@@ -129,7 +129,7 @@ class Projection:
 
         # move pointcloud back to hra origin
         if hasattr(self.target, 'target_transform'): 
-            pointcloud = self.target.target_transform(pointcloud)
+            pointcloud = self.target.target_transform(pointcloud) if self.target.target_transform else pointcloud
 
         # assign the transformation to the geometry object
         if isinstance(geometry, trimesh.base.Trimesh):
