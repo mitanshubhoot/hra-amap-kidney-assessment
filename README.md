@@ -2,7 +2,7 @@
 
 Code for AMap project. 
 
-This repository aims to enable projection of tissue blocks registrered to a source organ to a new reference organ (usually the Human Reference Atlas, part of HuBMap). 
+This repository aims to enable projection of tissue blocks registrered to a source organ to a new reference organ (usually the Human Reference Atlas, part of HuBMAP). 
 
 ### Setup instructions:
 
