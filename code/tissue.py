@@ -73,8 +73,8 @@ class TissueBlock(trimesh.Trimesh):
         return block
 
     @classmethod
-    def from_geometry(cls, geometry, donor, target_name: str, label=None):
-        block = cls(geometry.vertices, geometry.faces, donor)
+    def from_millitome(cls, millitome, donor: dict, metadata: dict, target_name: str, label=None):
+        block = cls(millitome.vertices, millitome.faces, donor, metadata)
 
         # add attributes
         block.label = label
