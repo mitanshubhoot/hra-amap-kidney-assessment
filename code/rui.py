@@ -43,5 +43,5 @@ class RUIProcessor:
             block.to_sample(self.registration_dir.joinpath('registrations'))
         
         # normalize
-        subprocess.run(['npx', 'github:hubmapconsortium/hra-rui-locations-processor', 'normalize', str(self.registration_dir)])
+        subprocess.run(['npx', 'github:hubmapconsortium/hra-rui-locations-processor', 'normalize', '--add-collisions', str(self.registration_dir)])
 
