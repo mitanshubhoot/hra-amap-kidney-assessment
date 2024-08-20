@@ -1,7 +1,8 @@
 import trimesh
-import vtk
+import tempfile
 import numpy as np
 import pandas as pd
+import pyvista as pv
 import open3d as o3d
 
 from pathlib import Path
@@ -99,35 +100,12 @@ def nii_to_mesh(path: str) -> trimesh.Trimesh:
 
 def vtk_to_mesh(path: str) -> trimesh.Trimesh:
     filename = Path(path)
-
-    try:
-        # read
-        reader = vtk.vtkGenericDataObjectReader()
-        reader.SetFileName(filename)
-        reader.Update()
-        
-        # write
-        writer = vtk.vtkSTLWriter()
-        writer.SetInputConnection(reader.GetOutputPort())
-        writer.SetFileName(f'{filename.stem}.stl')
-        writer.Write()
-
-        # read as trimesh instance and return
-        return trimesh.load(f'{filename.stem}.stl')
-    except:
-        reader = vtk.vtkUnstructuredGridReader()
-        reader.SetFileName(filename)
-
-        surface_filter = vtk.vtkDataSetSurfaceFilter()
-        surface_filter.SetInputConnection(reader.GetOutputPort())
-
-        triangle_filter = vtk.vtkTriangleFilter()
-        triangle_filter.SetInputConnection(surface_filter.GetOutputPort())
-
-        writer = vtk.vtkSTLWriter()
-        writer.SetFileName(f'{filename.stem}.stl')
-        writer.SetInputConnection(triangle_filter.GetOutputPort())
-        writer.Write()
-
-        # read as trimesh instance and return
-        return trimesh.load(f'{filename.stem}.stl')
+    vtk_data = pv.read(filename)
+    mesh = vtk_data.extract_surface()
+    writer = pv.Plotter()
+    writer.add_mesh(mesh)
+    # write vtk as gltf temporarily (gltf preserves data like texture from vtk)
+    with tempfile.NamedTemporaryFile(suffix='.gltf') as tfile:
+        writer.export_gltf(tfile.name, save_normals=True, inline_data=True)
+        # return as trimesh
+        return trimesh.load(tfile.name, force='mesh')
