@@ -30,6 +30,10 @@ pip install pyyaml
 pip install open3d
 pip install pyvista
 pip install point-cloud-utils
+pip install rtree
+pip install seaborn
 ```
 
 6. To run a quick registration using the provided pipeline, please see ```notebooks/Usage.ipynb```. Make sure to set appropriate parts in the code on your local system. 
+
+7. Additionally, to create RUI JSONs for Millitomes (as shown in `Millitome.ipynb`), one needs to install [Node.js] (https://nodejs.org/en/download/) and run ```npx github:hubmapconsortium/hra-rui-locations-processor help```
