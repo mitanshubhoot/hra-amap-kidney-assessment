@@ -1,47 +1,113 @@
-# HRA-AMap - Bidirectional Projections Between Human Atlas Systems for Data and Code Interoperability
 
-Code for AMap project. 
 
-This repository aims to enable projection of tissue blocks registrered to a source organ to a new reference organ (usually the Human Reference Atlas, part of HuBMAP). 
+# **HRA-AMAP 3D Kidney Registration & Error Analysis**
+### **Automated Mapping of Anatomical Parts (AMAP) Assessment**: *A 3D organ registration pipeline for aligning and analyzing male kidney models using the HRA-AMAP framework.*
 
-### Setup instructions:
+---
 
-1. Clone the repository with ```git clone https://github.com/cns-iu/hra-amap.git```
+### **Project Overview**
+This project demonstrates **3D registration, bidirectional projection, and error visualization** of **male left and right kidneys** using the **HRA-AMAP** framework. The pipeline aligns **generic kidney models** with **human anatomical reference models**, allowing for accurate mapping, visualization, and evaluation of registration accuracy.
 
-2. Inside the cloned ```hra-amap``` repostisory, clone ``bcpd`` repository (```https://github.com/ohirose/bcpd```) with ```git clone https://github.com/ohirose/bcpd.git```. This implements the Bayesian Coherent Point Drift algorithm based on the following paper [A Bayesian Formulation of Coherent Point Drift](https://ieeexplore.ieee.org/stamp/stamp.jsp?tp=&arnumber=8985307). The repository is ~1GB in file size hence it is not shipped with our repository and requires additional setup: 
+---
 
-    * For Windows
-
-       1. No setup required.  
-
-    * For MacOS and Linux
-
-        1. Install the OpenMP and the LAPACK libraries if not installed. For MacOS, make sure XCode is installed. OpenMP can then be installed with the ```homebrew``` package manager (```https://brew.sh```) followed by ```brew install libomp```
-
-        2. Type ```make OPT=-DUSE_OPENMP ENV=<your-environment>```. Substitute ```<uyour-environment>``` with ```LINUX``` for Linux, ```HOMEBREW_INTEL``` for Intel Macs and ```HOMEBREW``` for Macs with Apple Silicon. In case of a ```clang``` error during installation for MacOS, ensure to check if the ```makefile``` within the ```bcpd``` repository is pointing to the correct path for ```libomp.dylib```. In newer Macs, the correct path should be ```/opt/homebrew/Cellar/libomp/19.1.7/lib/libomp.dylib```. Note that current libomp version is 19.1.7, but the library version might different depending on the time of installation. 
-
-3. We recommend creating a virtual environment using [```miniconda```] (https://docs.anaconda.com/miniconda/install/) or [```anaconda``` ](https://docs.anaconda.com/anaconda/install/). The recommended Python version is 3.12.x. Create and activate environment using the following commands on a shell:
-
+## **📂 Repository Structure**
 ```
-# create
-conda create -n amap python=3.12
-
-# activate
-conda activate amap
+📁 hra-amap-kidney-assessment/
+│── 📂 data/                     # Source & Reference Kidney Models
+│── 📂 notebooks/                # Jupyter Notebooks for Registration & Error Analysis
+│── 📂 figures/                  # Generated Heatmaps, Histograms & Results
+│── 📂 results/                  # Exported Registered Models
+│── 📜 README.md                 # Documentation (You are Here)
 ```
 
-4. After activating the environment, install the following libraries:
+---
 
+## **Key Components**
+### **1. Forward Projection** *(Generic Kidney → Anatomical Kidney)*
+- Loads **generic kidney models** as **source**.
+- Loads **human anatomical kidney models** as **target**.
+- Runs **rigid & non-rigid registration** using AMAP.
+- Saves the **aligned (registered) models**.
+
+### **2. Backward Projection** *(Anatomical Kidney → Generic Kidney)*
+- Reverses the transformation.
+- Aligns **anatomical kidneys** back to the **generic kidney model**.
+- Ensures **bidirectional consistency** in mapping.
+
+### **3. Error Visualization (Heatmap & Histogram)**
+- **Computes Signed Distance Field (SDF)** to measure registration accuracy.
+- **Visualizes deviations using a heatmap** (colored model).
+- **Plots histogram of errors** to analyze distribution.
+- **Applies advanced colormap tuning** for better contrast.
+
+---
+
+## **Installation & Setup**
+
+Go through the repo:
+```sh
+https://github.com/cns-iu/hra-amap.git
 ```
-pip install trimesh
-pip install pyyaml
-pip install open3d
-pip install pyvista
-pip install point-cloud-utils
-pip install rtree
-pip install seaborn
+
+## **How to Run the Code**
+### **1️⃣ Forward & Backward Projection**
+Run the following notebooks inside `notebooks/`:
+- [`Usage.ipynb`](notebooks/Usage.ipynb) → Registers the kidneys in **one direction**.
+- [`Bidirectional_Projections.ipynb`](notebooks/Bidirectional_Projections.ipynb) → Registers **forward & backward**.
+
+### **2️⃣ Error Visualization**
+- [`Registration_Error_Visualization.ipynb`](notebooks/Registration_Error_Visualization.ipynb) → Generates **heatmaps & histograms** for error analysis.
+
+### **3️⃣ View Results**
+The **aligned kidneys, heatmaps, and histograms** will be saved in:
+```
+📂 figures/   → Heatmap models & histograms
+📂 /data/Kidney/Results/   → Registered kidney models
 ```
 
-5. To run a quick registration using the provided pipeline, please see ```notebooks/Usage.ipynb```. Make sure to set appropriate parts in the code on your local system. 
+---
+## **Issues Faced**  
 
-6. Additionally, to create RUI JSONs for Millitomes (as shown in `Millitome.ipynb`), one needs to install [Node.js] (https://nodejs.org/en/download/) and run ```npx github:hubmapconsortium/hra-rui-locations-processor help```
+### **1. Registration Took Too Long to Converge**
+- The **AMAP pipeline** was slow, especially for **high-resolution meshes**.
+- Large **3D kidney models (millions of vertices)** caused **long computation times**.
+
+### **2. Sometimes Registration Failed Due to Insufficient Correspondences**
+- Open3D **warned about "Too few correspondences"**.
+- This happened because **initial meshes were too different** in **scale or detail**.
+
+### **3. Large Mesh Files Caused High RAM Usage**
+- Full-resolution **GLB models (millions of points)** required **a lot of memory**.
+- Crashes occurred when processing **multiple things at once**.
+
+### **4. Computing signed_distance on all vertices (~millions of points) was too slow and caused kernel crashes.**
+- Color mapping compressed values too much, making high-error areas look the same as low-error areas.
+---
+
+## **Optimization Suggestions**  
+
+### **1. Leverage CUDA & PyTorch for Faster Computation**
+- The registration and distance calculations are currently CPU-based.
+- Processing large meshes (millions of points) takes hours to complete.
+
+### **2. Use Bayesian Optimization for Auto-Tuning**
+- Users must manually adjust lambda, gamma, max_iterations, etc.
+- Poor choices lead to bad registration results.
+
+### **3. Use Deep Learning for Better Feature Extraction**
+- Feature-based correspondence is limited to basic geometric methods.
+- When models have different resolutions or structures, correspondences can be incorrect.
+
+---
+
+## **📬 Submission Details**
+**GitHub Repository:** [📌 Link to Repository](https://github.com/YOUR_GITHUB_USERNAME/hra-amap-kidney-assessment)  
+**Submission Date:** February 2025  
+**Contact:** mbhoot@iu.edu 
+
+---
+
+## **References**
+- **HRA-AMAP GitHub:** [https://github.com/cns-iu/hra-amap](https://github.com/cns-iu/hra-amap)
+- **Human Reference Atlas:** [https://humanatlas.io](https://humanatlas.io)
+- **Trimesh Documentation:** [https://trimsh.org](https://trimsh.org)
