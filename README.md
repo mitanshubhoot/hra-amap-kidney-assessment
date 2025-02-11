@@ -101,7 +101,7 @@ The **aligned kidneys, heatmaps, and histograms** will be saved in:
 ---
 
 ## **📬 Submission Details**
-**GitHub Repository:** [📌 Link to Repository](https://github.com/YOUR_GITHUB_USERNAME/hra-amap-kidney-assessment)  
+**GitHub Repository:** [📌 Link to Repository](https://github.com/mitanshubhoot/hra-amap-kidney-assessment)  
 **Submission Date:** February 2025  
 **Contact:** mbhoot@iu.edu 
 
