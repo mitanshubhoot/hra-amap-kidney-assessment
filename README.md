@@ -56,7 +56,7 @@ Run the following notebooks inside `notebooks/`:
 - [`Bidirectional_Projections.ipynb`](notebooks/Bidirectional%20Projections.ipynb) → Registers **forward & backward**.
 
 ### **2️⃣ Error Visualization**
-- [`Registration_Error_Visualization.ipynb`](notebooks/Registration%20ErrorVisualization.ipynb) → Generates **heatmaps & histograms** for error analysis.
+- [`Registration_Error_Visualization.ipynb`](notebooks/Registration%20Error%20Visualization.ipynb) → Generates **heatmaps & histograms** for error analysis.
 
 ### **3️⃣ View Results**
 The **aligned kidneys, heatmaps, and histograms** will be saved in:
